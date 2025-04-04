@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breath-Controlled Motors</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+    
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    
+    .control-section {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 10px 0;
+      text-align: center;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      border-top: 1px solid #333;
+    }
+    
+    .button {
+      padding: 10px 20px;
+      background-color: transparent;
+      color: white;
+      border: 1px solid white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .button:active, .button.active {
+      background-color: #555;
+      border-color: transparent;
+    }
+    
+    .button:disabled {
+      background-color: transparent;
+      border-color: #555;
+      color: #555;
+      cursor: not-allowed;
+    }
+    
+    .status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    
+    .connected {
+      background-color: #2ecc71;
+    }
+    
+    .disconnected {
+      background-color: #e74c3c;
+    }
+    
+    #inhaleExhaleRatio {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 16px;
+      z-index: 2;
+    }
+    
+    #instructions {
+      display: none;
+      margin: 0;
+      margin-top: -5px;
+      font-size: 12px;
+      color: #bbb;
+    }
+    
+    /* Tabs styling */
+    .tab-buttons {
+      display: flex;
+      margin-bottom: 10px;
+    }
+    
+    .tab-button {
+      padding: 8px 15px;
+      background-color: #34495e;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 14px;
+    }
+    
+    .tab-button.active {
+      background-color: #3498db;
+    }
+    
+    .tab-content {
+      margin-bottom: 10px;
+    }
+    
+    .tab-panel {
+      padding: 10px;
+    }
+    
+    .tab-panel.hidden {
+      display: none;
+    }
+    
+    /* Motor control buttons */
+    .motor-controls {
+      display: flex;
+      gap: 20px;
+    }
+    
+    .motor-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .motor-label {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+    
+    .control-key {
+      width: 50px;
+      height: 50px;
+      background-color: #34495e;
+      border: 2px solid #7f8c8d;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      user-select: none;
+    }
+    
+    .control-key:hover {
+      background-color: #2c3e50;
+    }
+    
+    .control-key.active {
+      background-color: #3498db;
+    }
+    
+    .keys-row {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .empty-key {
+      width: 50px;
+      height: 50px;
+      visibility: hidden;
+    }
+    
+    /* Toggle switch styling */
+    .toggle-container {
+      position: fixed;
+      bottom: 70px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      z-index: 10;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 5px 8px;
+      border-radius: 20px;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 70px;
+      height: 26px;
+    }
+    
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #333;
+      transition: .4s;
+      border-radius: 34px;
+      border: 1px solid white;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 4px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    
+    input:checked + .toggle-slider {
+      background-color: #333;
+    }
+    
+    input:checked + .toggle-slider:before {
+      transform: translateX(43px);
+    }
+    
+    .toggle-label {
+      color: white;
+      font-size: 10px;
+      margin: 0 6px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ratio display -->
+  <div id="inhaleExhaleRatio">Inhale/Exhale Ratio: 1.00</div>
+  
+  <!-- Controls at the bottom -->
+  <div class="control-section">
+    <button id="micAccessBtn" class="button">Start Microphone</button>
+    <button id="connectBtn" class="button">Connect to Arduino</button>
+    <div id="connectionStatus">
+      <span class="status disconnected"></span> Not Connected
+    </div>
+  </div>
+  
+  <!-- Mode toggle switch (bottom right) -->
+  <div class="toggle-container">
+    <span class="toggle-label">Breath</span>
+    <label class="toggle-switch">
+      <input type="checkbox" id="modeToggle">
+      <span class="toggle-slider"></span>
+    </label>
+    <span class="toggle-label">Keyboard</span>
+  </div>
+  
+  <!-- Tab content -->
+  <div class="tab-content">
+    <!-- Breath control tab -->
+    <div id="breathTab" class="tab-panel">
+      <div id="instructions"></div>
+    </div>
+    
+    <!-- Keyboard control tab -->
+    <div id="keyboardTab" class="tab-panel hidden">
+      <div class="motor-controls">
+        <!-- Motor 1 controls -->
+        <div class="motor-column">
+          <div class="motor-label">Motor 1 (Exhale)</div>
+          <div class="keys-row">
+            <div class="empty-key"></div>
+            <div id="upKey" class="control-key">↑</div>
+            <div class="empty-key"></div>
+          </div>
+          <div class="keys-row">
+            <div class="empty-key"></div>
+            <div id="downKey" class="control-key">↓</div>
+            <div class="empty-key"></div>
+          </div>
+        </div>
+        
+        <!-- Motor 2 controls -->
+        <div class="motor-column">
+          <div class="motor-label">Motor 2 (Inhale)</div>
+          <div class="keys-row">
+            <div class="empty-key"></div>
+            <div class="empty-key"></div>
+            <div class="empty-key"></div>
+          </div>
+          <div class="keys-row">
+            <div id="leftKey" class="control-key">←</div>
+            <div class="empty-key"></div>
+            <div id="rightKey" class="control-key">→</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="breath_motor_control.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log("HTML DOM fully loaded");
+      
+      // Check if required buttons exist
+      const micBtn = document.getElementById('micAccessBtn');
+      const connectBtn = document.getElementById('connectBtn');
+      
+      console.log("Microphone button exists:", !!micBtn);
+      console.log("Connect button exists:", !!connectBtn);
+      
+      // Add emergency click handlers
+      if (micBtn) {
+        micBtn.addEventListener('click', function() {
+          console.log("Mic button clicked directly from HTML");
+        });
+      }
+      
+      if (connectBtn) {
+        connectBtn.addEventListener('click', function() {
+          console.log("Connect button clicked directly from HTML");
+        });
+      }
+      
+      // Check if the main JS file loaded
+      if (typeof setup === 'function') {
+        console.log("Main JS file loaded successfully");
+      } else {
+        console.error("Main JS file NOT loaded properly - function 'setup' not found");
+      }
+    });
+  </script>
+</body>
+</html> 
